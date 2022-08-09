@@ -2,8 +2,9 @@ import React, { useState, useRef, useEffect, useReducer } from 'react' // eslint
 import { RemixUiEditorContextView, astNode } from '@remix-ui/editor-context-view'
 import Editor, { loader } from '@monaco-editor/react'
 import { reducerActions, reducerListener, initialState } from './actions/editor'
-import { language, conf } from './syntax'
-import { cairoLang, cairoConf } from './cairoSyntax'
+import { solidityTokensProvider, solidityLanguageConfig } from './syntaxes/solidity'
+import { cairoTokensProvider, cairoLanguageConfig } from './syntaxes/cairo'
+import { zokratesTokensProvider, zokratesLanguageConfig } from './syntaxes/zokrates'
 
 import './remix-ui-editor.css'
 import { loadTypes } from './web-types'
@@ -245,7 +246,6 @@ export const EditorUI = (props: EditorUIProps) => {
     defineAndSetTheme(monacoRef.current)
   })
 
-
   useEffect(() => {
     if (!editorRef.current || !props.currentFile) return
     currentFileRef.current = props.currentFile
@@ -256,6 +256,8 @@ export const EditorUI = (props: EditorUIProps) => {
       monacoRef.current.editor.setModelLanguage(file.model, 'remix-solidity')
     } else if (file.language === 'cairo') {
       monacoRef.current.editor.setModelLanguage(file.model, 'remix-cairo')
+    } else if (file.language === 'zokrates') {
+      monacoRef.current.editor.setModelLanguage(file.model, 'remix-zokrates')
     }    
   }, [props.currentFile])
 
@@ -410,6 +412,8 @@ export const EditorUI = (props: EditorUIProps) => {
         (window as any).addRemixBreakpoint(e.target.position)
       }
     })
+
+    // zoomin zoomout
     editor.addCommand(monacoRef.current.KeyMod.CtrlCmd | monacoRef.current.KeyCode.US_EQUAL, () => {
       editor.updateOptions({ fontSize: editor.getOption(43).fontSize + 1 })
     })
@@ -417,6 +421,32 @@ export const EditorUI = (props: EditorUIProps) => {
       editor.updateOptions({ fontSize: editor.getOption(43).fontSize - 1 })
     })
     
+    // add context menu items
+    const zoominAction = {
+      id: "zoomIn",
+      label: "Zoom In",
+      contextMenuOrder: 0, // choose the order
+      contextMenuGroupId: "zooming", // create a new grouping
+      keybindings: [
+        // eslint-disable-next-line no-bitwise
+        monacoRef.current.KeyMod.CtrlCmd | monacoRef.current.KeyCode.Equal,
+      ],
+      run: () => { editor.updateOptions({ fontSize: editor.getOption(43).fontSize + 1 }) },
+    }
+    const zoomOutAction = {
+      id: "zoomOut",
+      label: "Zoom Out",
+      contextMenuOrder: 0, // choose the order
+      contextMenuGroupId: "zooming", // create a new grouping
+      keybindings: [
+        // eslint-disable-next-line no-bitwise
+        monacoRef.current.KeyMod.CtrlCmd | monacoRef.current.KeyCode.Minus,
+      ],
+      run: () => { editor.updateOptions({ fontSize: editor.getOption(43).fontSize - 1 }) },
+    }
+    editor.addAction(zoomOutAction)
+    editor.addAction(zoominAction)
+
     const editorService = editor._codeEditorService;
     const openEditorBase = editorService.openCodeEditor.bind(editorService);
     editorService.openCodeEditor = async (input, source) => {
@@ -437,12 +467,17 @@ export const EditorUI = (props: EditorUIProps) => {
     // Register a new language
     monacoRef.current.languages.register({ id: 'remix-solidity' })
     monacoRef.current.languages.register({ id: 'remix-cairo' })
+    monacoRef.current.languages.register({ id: 'remix-zokrates' })
+    
     // Register a tokens provider for the language
-    monacoRef.current.languages.setMonarchTokensProvider('remix-solidity', language)
-    monacoRef.current.languages.setLanguageConfiguration('remix-solidity', conf)
+    monacoRef.current.languages.setMonarchTokensProvider('remix-solidity', solidityTokensProvider)
+    monacoRef.current.languages.setLanguageConfiguration('remix-solidity', solidityLanguageConfig)
 
-    monacoRef.current.languages.setMonarchTokensProvider('remix-cairo', cairoLang)
-    monacoRef.current.languages.setLanguageConfiguration('remix-cairo', cairoConf)
+    monacoRef.current.languages.setMonarchTokensProvider('remix-cairo', cairoTokensProvider)
+    monacoRef.current.languages.setLanguageConfiguration('remix-cairo', cairoLanguageConfig)
+
+    monacoRef.current.languages.setMonarchTokensProvider('remix-zokrates', zokratesTokensProvider)
+    monacoRef.current.languages.setLanguageConfiguration('remix-zokrates', zokratesLanguageConfig)
 
     loadTypes(monacoRef.current)
   }
